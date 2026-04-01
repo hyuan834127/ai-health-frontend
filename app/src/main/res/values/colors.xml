@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="md_theme_primary">#1E88E5</color>
+    <color name="md_theme_onPrimary">#FFFFFF</color>
+    <color name="md_theme_primaryContainer">#D1E4FF</color>
+    <color name="md_theme_onPrimaryContainer">#001D36</color>
+
+    <color name="md_theme_secondary">#43A047</color>
+    <color name="md_theme_onSecondary">#FFFFFF</color>
+    <color name="md_theme_secondaryContainer">#CFF5D5</color>
+    <color name="md_theme_onSecondaryContainer">#002107</color>
+
+    <color name="md_theme_background">#FAFDFD</color>
+    <color name="md_theme_onBackground">#191C1D</color>
+    <color name="md_theme_surface">#FFFFFF</color>
+    <color name="md_theme_onSurface">#191C1D</color>
+    <color name="md_theme_surfaceVariant">#E0E2E7</color>
+    <color name="md_theme_onSurfaceVariant">#44474B</color>
+
+    <color name="md_theme_error">#BA1A1A</color>
+    <color name="md_theme_onError">#FFFFFF</color>
+
+    <color name="login_bg_overlay">#BF1565C0</color>
+    <color name="login_bg_start">#1565C0</color>
+    <color name="login_bg_end">#64B5F6</color>
+
+    <color name="health_heart">#E53935</color>
+    <color name="health_oxygen">#1976D2</color>
+    <color name="health_activity">#43A047</color>
+    <color name="health_stress_orange">#F57C00</color>
+    <color name="health_sleep_purple">#8E24AA</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>
