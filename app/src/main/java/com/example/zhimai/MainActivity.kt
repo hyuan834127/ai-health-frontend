@@ -1,12 +1,13 @@
-package com.example.zhimai // ⚠️ 请确保这里是你的实际包名
+package com.example.zhimai
 
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import com.example.zhimai.databinding.ActivityMainBinding
-import com.github.mikephil.charting.components.Legend
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
@@ -36,20 +37,19 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 无论什么模式，先初始化图表外观和下拉刷新逻辑
+        // 初始化图表外观、下拉刷新以及主题切换逻辑
         setupEcgChart()
         setupSwipeRefresh()
+        setupThemeToggle() // 🚀 新增：主题切换初始化
 
-        // 🚀 核心分流：根据 isDemoMode 决定走哪条路
+        // 核心分流
         if (isDemoMode) {
             Log.i(TAG, "📺 当前为演示模式，加载动态模拟数据...")
-            loadDemoData() // 加载带随机波动的假数据
+            loadDemoData()
         } else {
             Log.i(TAG, "⌚ 当前为真实模式，正在唤醒 OPPO SDK...")
-            // 1. 唤醒 OPPO 健康 SDK 引擎
             HeytapHealthApi.init(this)
             HeytapHealthApi.setLoggable(true)
-            // 2. 向用户申请读取健康数据的权限
             requestOppoHealthAuth()
         }
 
@@ -61,17 +61,45 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * 🚀 核心新增：亮暗模式切换逻辑
+     */
+    private fun setupThemeToggle() {
+        // 1. 获取当前系统模式（通过位运算判断是否为深色模式）
+        val currentMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        val isNight = currentMode == Configuration.UI_MODE_NIGHT_YES
+
+        // 2. 初始化 Emoji：黑夜模式显示太阳（提示切回白昼），白天模式显示月亮
+        // 注意：ViewBinding 会将 btn_theme_toggle 转为 btnThemeToggle
+        binding.btnThemeToggle.text = if (isNight) "☀️" else "🌙"
+
+        // 3. 设置点击切换逻辑
+        binding.btnThemeToggle.setOnClickListener { view ->
+            val isCurrentlyNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+            if (isCurrentlyNight) {
+                // 当前是深色模式 -> 切换到浅色模式
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            } else {
+                // 当前是浅色模式 -> 切换到深色模式
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            }
+
+            // 4. 炫酷动画：Emoji 旋转 360 度
+            // 旋转动画会让切换过程看起来更像经过了“深度计算”，符合“智脉” App 的调性
+            view.animate()
+                .rotationBy(360f)
+                .setDuration(500)
+                .start()
+        }
+    }
     override fun onResume() {
         super.onResume()
-        // 只有在真实模式下，回到页面时才去读真实数据
         if (!isDemoMode) {
             readRealHealthData()
         }
     }
 
-    /**
-     * 设置下拉刷新
-     */
     private fun setupSwipeRefresh() {
         binding.swipeRefreshLayout.setColorSchemeResources(
             android.R.color.holo_blue_bright,
@@ -80,16 +108,12 @@ class MainActivity : AppCompatActivity() {
         )
 
         binding.swipeRefreshLayout.setOnRefreshListener {
-            Log.i(TAG, "用户触发下拉刷新...")
-
-            // 根据模式刷新对应的数据
             if (isDemoMode) {
-                loadDemoData() // 演示模式下，下拉会重新生成一次随机数据
+                loadDemoData()
             } else {
-                readRealHealthData() // 真实模式下，重新去拉取手表数据
+                readRealHealthData()
             }
 
-            // 模拟同步动画：1.5秒后停止刷新小圆圈
             binding.swipeRefreshLayout.postDelayed({
                 if (binding.swipeRefreshLayout.isRefreshing) {
                     binding.swipeRefreshLayout.isRefreshing = false
@@ -99,108 +123,86 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 💡 演示模式核心：生成逼真的动态随机数据
-     */
     private fun loadDemoData() {
         runOnUiThread {
-            // 1. 生成随机心率 (68 到 85 之间)
             val randomHeartRate = (68..85).random()
             binding.tvHeartRate.text = "$randomHeartRate bpm"
-            binding.tvHeartRate.setTextColor(Color.parseColor("#E53935"))
 
-            // 2. 生成随机血氧 (97% 到 99% 之间)
             val randomOxygen = (97..99).random()
             binding.tvBloodOxygen.text = "$randomOxygen %"
 
-            // 3. 生成随机运动量 (10% 到 15% 之间)
             val randomActivity = (10..15).random()
             binding.tvActivity.text = "$randomActivity %"
 
-            // 4. 随机压力和睡眠
             val randomStress = (25..35).random()
             binding.tvStress.text = "$randomStress 极佳"
             binding.tvSleep.text = "8小时10分 (深睡极佳)"
 
-            // 5. 让图表也随机波动起来
             generateRandomChartData()
         }
     }
 
-    /**
-     * 💡 演示模式核心：为图表生成一段随机的波动波形
-     */
     private fun generateRandomChartData() {
         val entries = ArrayList<Entry>()
-        // 模拟 15 个时间点的数据波动
         for (i in 0 until 15) {
-            // 在 70 到 85 之间随机波动
             val valY = (700..850).random() / 10f
             entries.add(Entry(i.toFloat(), valY))
         }
 
         val dataSet = LineDataSet(entries, "实时心率趋势")
-        dataSet.color = Color.parseColor("#E53935") // 保持红色折线
+        dataSet.color = Color.parseColor("#E53935")
         dataSet.lineWidth = 3.0f
         dataSet.setDrawCircles(false)
         dataSet.setDrawValues(false)
-        dataSet.mode = LineDataSet.Mode.CUBIC_BEZIER // 平滑曲线
+        dataSet.mode = LineDataSet.Mode.CUBIC_BEZIER
         dataSet.setDrawFilled(true)
-        dataSet.fillColor = Color.parseColor("#FFF5F5") // 淡红色渐变底
+
+        // 根据当前模式调整填充色透明度，防止太刺眼
         dataSet.fillAlpha = 60
+        dataSet.fillColor = Color.parseColor("#E53935")
 
         binding.ecgChart.data = LineData(dataSet)
-        binding.ecgChart.invalidate() // 刷新图表显示
+        binding.ecgChart.invalidate()
     }
 
-    /**
-     * 初始化图表的静态外观
-     */
     private fun setupEcgChart() {
         val chart = binding.ecgChart
         chart.setNoDataText("正在初始化健康监测引擎...")
-        chart.setNoDataTextColor(Color.parseColor("#95A5A6"))
 
-        // X轴配置
+        // 动态适配：根据是否是深色模式调整图表轴线颜色
+        val isNight = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val axisColor = if (isNight) Color.WHITE else Color.parseColor("#757575")
+        val gridColor = if (isNight) Color.parseColor("#33FFFFFF") else Color.parseColor("#E0E0E0")
+
         val xAxis = chart.xAxis
         xAxis.position = XAxis.XAxisPosition.BOTTOM
-        xAxis.setDrawGridLines(false) // 关掉网格线更清爽
-        xAxis.textColor = Color.parseColor("#757575")
+        xAxis.setDrawGridLines(false)
+        xAxis.textColor = axisColor
 
-        // Y轴配置
         val leftAxis = chart.axisLeft
         leftAxis.axisMinimum = 50f
         leftAxis.axisMaximum = 110f
         leftAxis.setDrawGridLines(true)
-        leftAxis.gridColor = Color.parseColor("#E0E0E0")
-        leftAxis.textColor = Color.parseColor("#757575")
+        leftAxis.gridColor = gridColor
+        leftAxis.textColor = axisColor
 
         chart.axisRight.isEnabled = false
         chart.description.isEnabled = false
-        chart.legend.isEnabled = false // 隐藏图例
+        chart.legend.isEnabled = false
     }
 
     // =========================================================================
-    // 👇 以下全是你原本的真实数据拉取逻辑，保持不变，保证随时可以切回真实模式 👇
+    // OPPO SDK 真实数据逻辑（保持不变）
     // =========================================================================
 
     private fun requestOppoHealthAuth() {
-        val scopes = listOf(
-            "READ_HEART_RATE",
-            "READ_DAILY_ACTIVITY",
-            "READ_BLOOD_OXYGEN",
-            "READ_SLEEP"
-        )
-
-        Log.i(TAG, "正在请求 OPPO 健康授权...")
+        val scopes = listOf("READ_HEART_RATE", "READ_DAILY_ACTIVITY", "READ_BLOOD_OXYGEN", "READ_SLEEP")
         HeytapHealthApi.getInstance().authorityApi().request(this, scopes[0], object : HResponse<AuthResult> {
             override fun onSuccess(result: AuthResult?) {
-                Log.i(TAG, "✅ OPPO 授权成功！")
                 readRealHealthData()
             }
-
             override fun onFailure(code: Int) {
-                Log.e(TAG, "❌ OPPO 授权失败，错误码：$code")
+                Log.e(TAG, "❌ OPPO 授权失败：$code")
             }
         })
     }
@@ -209,7 +211,6 @@ class MainActivity : AppCompatActivity() {
         val endTime = System.currentTimeMillis()
         val startTime = endTime - 24 * 60 * 60 * 1000L
 
-        // 拉取心率数据
         val heartRateRequest = DataReadRequest.Builder()
             .read(DataType.TYPE_HEART_RATE)
             .setTimeRange(startTime, endTime)
@@ -217,16 +218,11 @@ class MainActivity : AppCompatActivity() {
 
         HeytapHealthApi.getInstance().dataApi().read(heartRateRequest, object : HResponse<List<DataSet>> {
             override fun onSuccess(dataSets: List<DataSet>?) {
-                if (!dataSets.isNullOrEmpty()) {
-                    parseAndUpdateHeartRateUI(dataSets)
-                }
+                if (!dataSets.isNullOrEmpty()) parseAndUpdateHeartRateUI(dataSets)
             }
-            override fun onFailure(code: Int) {
-                Log.e(TAG, "心率数据拉取失败: $code")
-            }
+            override fun onFailure(code: Int) { Log.e(TAG, "心率数据失败: $code") }
         })
 
-        // 拉取步数数据
         val stepRequest = DataReadRequest.Builder()
             .read(DataType.TYPE_DAILY_ACTIVITY)
             .setTimeRange(startTime, endTime)
@@ -234,47 +230,26 @@ class MainActivity : AppCompatActivity() {
 
         HeytapHealthApi.getInstance().dataApi().read(stepRequest, object : HResponse<List<DataSet>> {
             override fun onSuccess(dataSets: List<DataSet>?) {
-                if (!dataSets.isNullOrEmpty()) {
-                    parseAndUpdateStepUI(dataSets)
-                }
+                if (!dataSets.isNullOrEmpty()) parseAndUpdateStepUI(dataSets)
             }
-            override fun onFailure(code: Int) {
-                Log.e(TAG, "步数数据拉取失败: $code")
-            }
+            override fun onFailure(code: Int) { Log.e(TAG, "步数数据失败: $code") }
         })
     }
 
     private fun parseAndUpdateHeartRateUI(dataSets: List<DataSet>) {
         try {
-            val lastDataSet = dataSets.last()
-            if (lastDataSet.dataPoints.isNotEmpty()) {
-                val latestPoint = lastDataSet.dataPoints.last()
-                val heartRateValue = latestPoint.getValue(latestPoint.dataType.elements.get(0)) as Float
-
-                runOnUiThread {
-                    binding.tvHeartRate.text = "${heartRateValue.toInt()} bpm"
-                    binding.tvHeartRate.setTextColor(Color.parseColor("#E53935"))
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "解析心率数据出错: ${e.message}")
-        }
+            val latestPoint = dataSets.last().dataPoints.last()
+            val heartRateValue = latestPoint.getValue(latestPoint.dataType.elements[0]) as Float
+            runOnUiThread { binding.tvHeartRate.text = "${heartRateValue.toInt()} bpm" }
+        } catch (e: Exception) { Log.e(TAG, "解析出错: ${e.message}") }
     }
 
     private fun parseAndUpdateStepUI(dataSets: List<DataSet>) {
         try {
-            val lastDataSet = dataSets.last()
-            if (lastDataSet.dataPoints.isNotEmpty()) {
-                val latestPoint = lastDataSet.dataPoints.last()
-                val stepValue = latestPoint.getValue(latestPoint.dataType.elements.get(0)) as Float
-
-                runOnUiThread {
-                    binding.tvActivity.text = "${stepValue.toInt()} 步"
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "解析步数数据出错: ${e.message}")
-        }
+            val latestPoint = dataSets.last().dataPoints.last()
+            val stepValue = latestPoint.getValue(latestPoint.dataType.elements[0]) as Float
+            runOnUiThread { binding.tvActivity.text = "${stepValue.toInt()} 步" }
+        } catch (e: Exception) { Log.e(TAG, "解析出错: ${e.message}") }
     }
 
     private fun sendRequestToServer() {
@@ -300,7 +275,7 @@ class MainActivity : AppCompatActivity() {
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread {
-                    binding.tvAiResult.text = "❌ 网络请求失败！请检查局域网连接。\n错误信息: ${e.message}"
+                    binding.tvAiResult.text = "❌ 网络连接失败\n错误: ${e.message}"
                     binding.btnSendAi.isEnabled = true
                 }
             }
@@ -308,11 +283,7 @@ class MainActivity : AppCompatActivity() {
                 val responseData = response.body?.string()
                 runOnUiThread {
                     binding.btnSendAi.isEnabled = true
-                    if (response.isSuccessful) {
-                        binding.tvAiResult.text = "✨ 诊断完成：\n$responseData"
-                    } else {
-                        binding.tvAiResult.text = "⚠️ 引擎返回错误，状态码：${response.code}"
-                    }
+                    binding.tvAiResult.text = if (response.isSuccessful) "✨ 诊断完成：\n$responseData" else "⚠️ 错误：${response.code}"
                 }
             }
         })
